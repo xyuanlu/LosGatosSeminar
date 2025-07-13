@@ -1,0 +1,65 @@
+-- Revisit Database Isolation --
+ 
+== In the ANSI SQL world == 
+
+* The concept of database isolation provides programmers with a single-thread environment illusion. The isolation
+guarantee stats that transactions are executed as if there is no concurrent transactions (in fact there are many of them).
+
+* Anomalies (concurrent bugs)
+  ** Dirty write - write based on uncommitted value, and commit before  previous  uncommitted value commit (which could be rolled back)
+  ** Dirty read - read uncommitted data
+  ** Non Repeatable Read - one transaction reads one row twice, gets different data
+  ** Phantom Read (幻影读) - when a transaction re-execute a query, some rows in the set of rows returned the second time are not there in the first place. 
+  ** Write Skew - 2 transaction reads the same set of data and updates disjoint subsets. For example, a transaction determines whether to execute a write
+                  based on keys A and B. If the check passes, it updates B. However, another thread updates A between the check and the update, which passes the check again.
+  example:
+    BEGIN TRANSACTION;
+    SELECT * FROM T;
+    WAITFOR DELAY '00:01:00'   <----wait for 1 min
+    SELECT * FROM T;
+    COMMIT;
+  In Phantom Read but RR, first select returns X rows, and the second select may return X+N rows, where N are newly inserted in the 1 min window. 
+  The X rows value are unchanged.
+
+* Different Isolation Levels
+** Read Uncommitted: can read anything
+** Read Committed: any data that is read is committed at the moment of read (not the moment of transaction begin)
+** Repeatable Read: If a transaction reads a row, it seas the same data throughout the transaction
+** Serializable: complete isolation
+
+Isolation Level 	  Dirty write   Dirty Read	   Non-Repeatable Read    Phantom
+READ UNCOMMITTED	  Not possible  Possible       Possible	              Possible
+READ COMMITTED	    Not possible	Not possible   Possible	              Possible
+REPEATABLE READ  		Not possible	Not possible   Not possible	          Possible
+SERIALIZABLE*      	Not possible	Not possible   Not possible	          Not possible
+
+note: the definition of SERIALIZABLE is: that the final result must be equivalent to a result that could have 
+      occurred if there were no concurrency. Not just the implementation that won't have these 4 anomalies.
+
+
+== in ractive == 
+
+The SQL standard did not accurately define the database isolation level, and different vendors attach liberal and
+non-standard semantics to name their own isolation levels ( ¯\_(ツ)_/¯ ). 
+
+*Snapshot Isolation
+Snapshot Isolation guarantees that all reads made in a transaction will see a consistent snapshot of a database. In practice
+it reads the last committed values that existed at the time it started. 
+It wont have dirty write/read and guarantee RR. However, depending on different vendors and their definitions, some implementations
+are also vulnerable to the phantom read anomaly. Snapshot isolation is vulnerable to the write skew anomaly.
+
+
+
+
+
+
+
+
+
+
+
+
+[1] https://en.wikipedia.org/wiki/Snapshot_isolation
+[2] https://dbmsmusings.blogspot.com/2019/05/introduction-to-transaction-isolation.html
+
+
