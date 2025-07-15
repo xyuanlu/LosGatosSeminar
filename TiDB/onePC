@@ -1,0 +1,22 @@
+
+The core of 2PC logic is in twoPhaseCommitter insert sql，prewrite regions question
+
+1PC Decision Logic:
+1pc is only possible when all keys touched by a transaction are in the same region and binlog is not being used.
+TiDB then sets try_one_pc in the prewrite message to true Async commit - TiKV sig-transaction documentation.
+
+Prewrite Request Flag:
+The key mechanism is the try_one_pc flag in the prewrite request. When TiDB determines that a transaction is
+eligible for 1PC, it sets this flag to true in the prewrite message sent to TiKV.
+
+Response Handling:
+When TiKV successfully commits a transaction in 1PC, the one_pc_commit_ts field in the PrewriteResponse will
+be set to tell TiDB the final commit_ts. Sometimes TiKV may fail to commit the transaction by 1PC, but it's
+able to prewrite it in normal 2PC way. In this case, the one_pc_commit_ts will be zero to indicate that TiDB
+still needs to proceed on the 2PC procedure 1PC .
+
+
+The 1PC optimization is integrated into the existing 2PC infrastructure, with the code changes scattered 1PC.
+
+
+[1] https://pingcap.github.io/tidb-dev-guide/understand-tidb/1pc.html
